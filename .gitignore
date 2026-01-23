@@ -1,0 +1,18 @@
+# data & outputs
+data/
+outputs/
+*.pkl
+*.joblib
+*.pt
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# notebooks
+.ipynb_checkpoints/
+
+# os
+.DS_Store

@@ -1,0 +1,18 @@
+seed: 42
+n_splits: 5
+
+data:
+  train_path: data/train.csv
+  test_path: data/test.csv
+  target: Outcome
+
+model:
+  name: lightgbm
+  params:
+    learning_rate: 0.05
+    num_leaves: 64
+    n_estimators: 2000
+
+features:
+  drop_cols: []
+  cat_cols: []
