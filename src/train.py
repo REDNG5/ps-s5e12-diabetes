@@ -136,6 +136,15 @@ def main():
     res.to_csv("outputs/cv_results.csv", index=False)
     print("Saved CV results to: outputs/cv_results.csv")
 
+    # Save OOF predictions for downstream analysis/plots
+    oof_path = "outputs/oof_logreg.csv"
+    if id_col and id_col in df.columns:
+        oof_df = pd.DataFrame({id_col: df[id_col], target: y, "oof_pred": oof})
+    else:
+        oof_df = pd.DataFrame({target: y, "oof_pred": oof})
+    oof_df.to_csv(oof_path, index=False)
+    print(f"Saved OOF predictions to: {oof_path}")
+
 
 if __name__ == "__main__":
     main()
