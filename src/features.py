@@ -1,6 +1,6 @@
 import argparse
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -9,6 +9,11 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.impute import SimpleImputer
 
 
 def _safe_ratio(numer: pd.Series, denom: pd.Series) -> pd.Series:
@@ -55,6 +60,55 @@ def add_basic_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
         _add("age_bmi_interaction", df["age"] * df["bmi"])
 
     return df, new_cols
+
+
+def build_preprocess(X: pd.DataFrame) -> ColumnTransformer:
+    cat_cols = X.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
+    num_cols = [c for c in X.columns if c not in cat_cols]
+
+    numeric_pipe = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
+        ]
+    )
+    categorical_pipe = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("onehot", OneHotEncoder(handle_unknown="ignore")),
+        ]
+    )
+
+    return ColumnTransformer(
+        transformers=[
+            ("num", numeric_pipe, num_cols),
+            ("cat", categorical_pipe, cat_cols),
+        ],
+        remainder="drop",
+    )
+
+
+def prepare_features(
+    df: pd.DataFrame,
+    target: Optional[str] = None,
+    id_col: Optional[str] = None,
+    feature_engineering: bool = False,
+) -> Tuple[pd.DataFrame, Optional[np.ndarray], List[str], List[str]]:
+    data = df.copy()
+    new_cols: List[str] = []
+    if feature_engineering:
+        data, new_cols = add_basic_features(data)
+
+    drop_cols = []
+    y = None
+    if target and target in data.columns:
+        y = data[target].astype(int).values
+        drop_cols.append(target)
+    if id_col and id_col in data.columns:
+        drop_cols.append(id_col)
+
+    X = data.drop(columns=drop_cols) if drop_cols else data
+    return X, y, X.columns.tolist(), new_cols
 
 
 def _save_target_distribution(df: pd.DataFrame, target: str, out_dir: str) -> None:

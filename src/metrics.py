@@ -1,6 +1,6 @@
 import argparse
 import os
-from typing import Optional
+from typing import Optional, Dict
 
 import numpy as np
 import pandas as pd
@@ -11,7 +11,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from sklearn.metrics import (
-    auc,
     average_precision_score,
     precision_recall_curve,
     roc_auc_score,
@@ -21,18 +20,24 @@ from sklearn.metrics import (
 from sklearn.calibration import calibration_curve
 import joblib
 
-
-def _ensure_dir(path: str) -> None:
-    os.makedirs(path, exist_ok=True)
+from src.utils import ensure_dir, log
 
 
-def _load_oof(oof_path: str, target: str) -> pd.DataFrame:
+def load_oof(oof_path: str, target: str) -> pd.DataFrame:
     df = pd.read_csv(oof_path)
     if target not in df.columns:
         raise ValueError(f"Target column '{target}' not found in {oof_path}.")
     if "oof_pred" not in df.columns:
         raise ValueError("Column 'oof_pred' not found in OOF file.")
     return df[[target, "oof_pred"]].dropna()
+
+
+def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+    return {
+        "roc_auc": float(roc_auc_score(y_true, y_pred)),
+        "average_precision": float(average_precision_score(y_true, y_pred)),
+        "brier": float(brier_score_loss(y_true, y_pred)),
+    }
 
 
 def plot_roc(y_true: np.ndarray, y_pred: np.ndarray, out_path: str) -> float:
@@ -177,9 +182,9 @@ def main() -> None:
     parser.add_argument("--skip-shap", action="store_true")
     args = parser.parse_args()
 
-    _ensure_dir(args.out_dir)
+    ensure_dir(args.out_dir)
 
-    oof_df = _load_oof(args.oof_path, args.target)
+    oof_df = load_oof(args.oof_path, args.target)
     y_true = oof_df[args.target].astype(int).values
     y_pred = oof_df["oof_pred"].values
 
@@ -188,10 +193,10 @@ def main() -> None:
     brier = plot_calibration(y_true, y_pred, os.path.join(args.out_dir, "calibration_curve.png"))
     ks = plot_ks(y_true, y_pred, os.path.join(args.out_dir, "ks_curve.png"))
 
-    print(f"ROC AUC: {roc_auc:.6f}")
-    print(f"Average Precision: {ap:.6f}")
-    print(f"Brier Score: {brier:.6f}")
-    print(f"KS: {ks:.6f}")
+    log(f"ROC AUC: {roc_auc:.6f}")
+    log(f"Average Precision: {ap:.6f}")
+    log(f"Brier Score: {brier:.6f}")
+    log(f"KS: {ks:.6f}")
 
     if not args.skip_shap:
         out_path = os.path.join(args.out_dir, "shap_summary.png")
