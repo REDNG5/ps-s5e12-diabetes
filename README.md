@@ -56,6 +56,15 @@ python -m src.predict --config configs/logreg.yaml --out submission.csv
 - OOF Brier Score: 0.200482
 - OOF KS: 0.325583
 
+### LightGBM + feature engineering
+- Validation: Stratified 5-fold CV (seed=42)
+- Metric: ROC-AUC
+- CV AUC: 0.724539 ± 0.000686 (mean ± std)
+- OOF ROC-AUC: 0.724533
+- OOF PR-AUC (Average Precision): 0.809857
+- OOF Brier Score: 0.200835
+- OOF KS: 0.324626
+
 ## One-page project brief (English + 中文)
 
 ### (1) Business framing (业务化)
