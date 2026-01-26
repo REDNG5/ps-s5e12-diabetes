@@ -8,13 +8,20 @@ from src.utils import load_config, load_model, log
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, help="Path to config yaml (same as training)")
-    parser.add_argument("--model-path", default="outputs/models/logreg.joblib")
+    parser.add_argument("--model-path", default=None)
     parser.add_argument("--out", default="submission.csv")
     args = parser.parse_args()
 
-    pack = load_model(args.model_path)
+    cfg = load_config(args.config)
+    if args.model_path is None:
+        model_name = cfg["model"]["name"]
+        model_path = f"outputs/models/{model_name}.joblib"
+    else:
+        model_path = args.model_path
+
+    pack = load_model(model_path)
     clf = pack["pipeline"]
-    cfg = pack["config"]
+    cfg = pack.get("config", cfg)
 
     test_path = cfg["data"]["test_path"]
     id_col = cfg["data"].get("id_col", "id")

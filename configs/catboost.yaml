@@ -10,16 +10,11 @@ data:
 feature_engineering: true
 
 model:
-  name: lightgbm
+  name: catboost
   params:
     learning_rate: 0.05
-    num_leaves: 64
-    n_estimators: 2000
-    subsample: 0.9
-    colsample_bytree: 0.9
-    reg_alpha: 0.0
-    reg_lambda: 0.0
-
-features:
-  drop_cols: []
-  cat_cols: []
+    depth: 8
+    n_estimators: 1500
+    l2_leaf_reg: 3.0
+    loss_function: Logloss
+    eval_metric: AUC

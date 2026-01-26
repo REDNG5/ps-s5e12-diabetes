@@ -5,24 +5,72 @@ import numpy as np
 import pandas as pd
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
+from sklearn.base import BaseEstimator
+
+try:
+    from lightgbm import LGBMClassifier
+except ImportError:  # pragma: no cover - optional dependency
+    LGBMClassifier = None
+
+try:
+    from catboost import CatBoostClassifier
+except ImportError:  # pragma: no cover - optional dependency
+    CatBoostClassifier = None
 
 from src import cv as cv_utils
 from src.features import build_preprocess, prepare_features
 from src.utils import load_config, log, save_csv, save_model, seed_everything, ensure_dir
 
 
-def build_model(params: dict) -> LogisticRegression:
+def _normalize_class_weight(params: dict):
     class_weight = params.get("class_weight", None)
     if isinstance(class_weight, str) and class_weight.lower() == "null":
-        class_weight = None
+        return None
+    return class_weight
 
-    return LogisticRegression(
-        C=float(params.get("C", 1.0)),
-        max_iter=int(params.get("max_iter", 2000)),
-        solver=str(params.get("solver", "lbfgs")),
-        class_weight=class_weight,
-        n_jobs=None,
-    )
+
+def build_model(name: str, params: dict, seed: int) -> BaseEstimator:
+    name = str(name).lower()
+    if name in {"logreg", "logistic", "logistic_regression"}:
+        class_weight = _normalize_class_weight(params)
+        return LogisticRegression(
+            C=float(params.get("C", 1.0)),
+            max_iter=int(params.get("max_iter", 2000)),
+            solver=str(params.get("solver", "lbfgs")),
+            class_weight=class_weight,
+            n_jobs=None,
+        )
+
+    if name in {"lightgbm", "lgbm"}:
+        if LGBMClassifier is None:
+            raise ImportError("lightgbm is not installed. Add it to requirements.txt and install.")
+        return LGBMClassifier(
+            random_state=seed,
+            learning_rate=float(params.get("learning_rate", 0.05)),
+            num_leaves=int(params.get("num_leaves", 64)),
+            n_estimators=int(params.get("n_estimators", 2000)),
+            subsample=float(params.get("subsample", 1.0)),
+            colsample_bytree=float(params.get("colsample_bytree", 1.0)),
+            reg_alpha=float(params.get("reg_alpha", 0.0)),
+            reg_lambda=float(params.get("reg_lambda", 0.0)),
+        )
+
+    if name in {"catboost", "cb"}:
+        if CatBoostClassifier is None:
+            raise ImportError("catboost is not installed. Add it to requirements.txt and install.")
+        return CatBoostClassifier(
+            random_seed=seed,
+            learning_rate=float(params.get("learning_rate", 0.05)),
+            depth=int(params.get("depth", 8)),
+            n_estimators=int(params.get("n_estimators", 1500)),
+            l2_leaf_reg=float(params.get("l2_leaf_reg", 3.0)),
+            loss_function=str(params.get("loss_function", "Logloss")),
+            eval_metric=str(params.get("eval_metric", "AUC")),
+            allow_writing_files=bool(params.get("allow_writing_files", False)),
+            verbose=False,
+        )
+
+    raise ValueError(f"Unsupported model name: {name}")
 
 
 def main() -> None:
@@ -54,7 +102,8 @@ def main() -> None:
         log(f"Added features: {', '.join(new_cols)}")
 
     preprocess = build_preprocess(X)
-    model = build_model(cfg["model"]["params"])
+    model_name = cfg["model"]["name"]
+    model = build_model(model_name, cfg["model"]["params"], seed)
     clf = Pipeline(steps=[("preprocess", preprocess), ("model", model)])
 
     cv = cv_utils.build_stratified_kfold(n_splits=n_splits, seed=seed)
@@ -69,7 +118,7 @@ def main() -> None:
     ensure_dir(os.path.join("outputs", "models"))
 
     clf.fit(X, y)
-    model_path = os.path.join("outputs", "models", "logreg.joblib")
+    model_path = os.path.join("outputs", "models", f"{model_name}.joblib")
     save_model(
         {
             "pipeline": clf,
@@ -85,7 +134,7 @@ def main() -> None:
     res.loc[len(res)] = ["std", summary["std"]]
     save_csv(res, os.path.join("outputs", "cv_results.csv"))
 
-    oof_path = os.path.join("outputs", "oof_logreg.csv")
+    oof_path = os.path.join("outputs", f"oof_{model_name}.csv")
     if id_col and id_col in df.columns:
         oof_df = pd.DataFrame({id_col: df[id_col], target: y, "oof_pred": oof})
     else:

@@ -21,6 +21,7 @@ from sklearn.calibration import calibration_curve
 import joblib
 
 from src.utils import ensure_dir, log
+from src.features import prepare_features
 
 
 def load_oof(oof_path: str, target: str) -> pd.DataFrame:
@@ -124,6 +125,22 @@ def _get_feature_names(preprocess, input_columns):
     return names
 
 
+def _is_tree_model(model) -> bool:
+    name = model.__class__.__name__.lower()
+    tree_markers = (
+        "lgbm",
+        "lightgbm",
+        "catboost",
+        "xgb",
+        "randomforest",
+        "gradientboost",
+        "gbm",
+        "extratrees",
+        "decisiontree",
+    )
+    return any(marker in name for marker in tree_markers)
+
+
 def plot_shap_summary(
     model_path: str,
     train_path: str,
@@ -142,10 +159,16 @@ def plot_shap_summary(
     clf = pack["pipeline"]
 
     df = pd.read_csv(train_path)
-    drop_cols = [target]
-    if id_col and id_col in df.columns:
-        drop_cols.append(id_col)
-    X = df.drop(columns=drop_cols)
+    feature_engineering = bool(pack.get("feature_engineering", False))
+    X, _, _, _ = prepare_features(
+        df,
+        target=target,
+        id_col=id_col,
+        feature_engineering=feature_engineering,
+    )
+    feat_cols = pack.get("feature_columns", None)
+    if feat_cols is not None:
+        X = X[feat_cols]
     if len(X) > max_rows:
         X = X.sample(max_rows, random_state=42)
 
@@ -155,8 +178,15 @@ def plot_shap_summary(
     X_trans = preprocess.transform(X)
     feature_names = _get_feature_names(preprocess, X.columns)
 
-    explainer = shap.LinearExplainer(model, X_trans)
-    shap_values = explainer.shap_values(X_trans)
+    if _is_tree_model(model):
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer.shap_values(X_trans)
+    else:
+        explainer = shap.LinearExplainer(model, X_trans)
+        shap_values = explainer.shap_values(X_trans)
+
+    if isinstance(shap_values, list) and len(shap_values) > 1:
+        shap_values = shap_values[1]
 
     shap.summary_plot(
         shap_values,
