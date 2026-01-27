@@ -3,6 +3,7 @@ from typing import Callable, Dict, Tuple
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import roc_auc_score
+from sklearn.base import clone
 
 
 def build_stratified_kfold(n_splits: int, seed: int) -> StratifiedKFold:
@@ -23,8 +24,9 @@ def run_cv(
         X_tr, y_tr = X.iloc[tr_idx], y[tr_idx]
         X_va, y_va = X.iloc[va_idx], y[va_idx]
 
-        model.fit(X_tr, y_tr)
-        pred = model.predict_proba(X_va)[:, 1]
+        fold_model = clone(model)
+        fold_model.fit(X_tr, y_tr)
+        pred = fold_model.predict_proba(X_va)[:, 1]
         oof[va_idx] = pred
 
         score = metric_fn(y_va, pred)
