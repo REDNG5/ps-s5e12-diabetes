@@ -30,6 +30,12 @@ python -m src.train --config configs/logreg.yaml
 # OOF metrics and visualization
 python -m src.metrics --oof-path outputs/oof_logreg.csv --out-dir outputs/figures
 
+# leakage checks (column-level)
+python -m src.leakage --config configs/logreg.yaml --out-path outputs/leakage_report.csv
+
+# ablation (group + single feature)
+python -m src.ablation --config configs/logreg.yaml --mode both --out-path outputs/ablation_report.csv
+
 # generate submisssion file
 python -m src.predict --config configs/logreg.yaml --out submission.csv
 
