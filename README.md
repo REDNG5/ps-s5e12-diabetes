@@ -93,6 +93,13 @@ python -m src.predict --config configs/logreg.yaml --out submission.csv
 - EN:
   - Hypotheses: core clinical features (e.g., glucose, BMI, age) are strong predictors; errors may be higher in certain demographic/clinical subgroups.
   - Validation: Stratified K-Fold CV; leakage checks; optional ablation to verify feature contribution; subgroup performance review if labels allow.
+  - Automated leakage checks (outputs/leakage_report.csv):
+    - Flagged 2 / 24 features by name heuristics: physical_activity_minutes_per_week, family_history_diabetes.
+    - No near-perfect leakage signal detected (no eq_rate/inv_rate ~ 1.0).
+  - Automated ablation (outputs/ablation_report.csv, base mean AUC = 0.694407):
+    - Most influential single feature (drop causes largest AUC drop): family_history_diabetes (delta = -0.043076).
+    - Most influential group: lifestyle (delta = -0.024960).
+    - Core clinical signal is supported: dropping age reduces AUC (delta = -0.012486).
 - 中文：
   - 假设：核心临床特征（如血糖、BMI、年龄）对风险有显著预测力；部分人群/临床分组误差更高。
   - 验证：分层 K 折交叉验证；泄漏排查；可做 ablation 验证特征贡献；若有分组字段则做分组评估。
@@ -102,6 +109,9 @@ python -m src.predict --config configs/logreg.yaml --out submission.csv
   - Baseline score: CV AUC 0.6944 ± 0.0008; OOF AUC 0.6944.
   - Lift: baseline -> current baseline (no feature engineering); future models should quantify relative improvement.
   - Error analysis: to be expanded with subgroup/segment analysis and calibration diagnostics.
+  - Evidence from validation diagnostics:
+    - Ablation confirms strong dependence on family_history_diabetes and lifestyle features.
+    - Leakage checks show no obvious near-perfect proxy for the label.
 - 中文：
   - 基线分数：CV AUC 0.6944 ± 0.0008；OOF AUC 0.6944。
   - 提升：目前为无特征工程基线；后续模型需报告相对提升。
